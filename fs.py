@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-
+# yum install fusepy
 # https://www.stavros.io/posts/python-fuse-filesystem/
 # (LICENSED BSD)
 
@@ -11,6 +11,7 @@ import stat
 import shutil
 
 VERBOSE = False
+GET_DIR = [".", ".."]
 
 from fuse import FUSE,FuseOSError, Operations, c_stat
 class nostat(c_stat):
@@ -37,14 +38,12 @@ class nostat(c_stat):
                                                           'st_ino'))
 
 
-class Passthrough(Operations):
-    def __init__(self, slow_dir, fast_dir):
+class CacheDir(Operations):
+    def __init__(self, slow_dir, fast_dir, maxfilesize=3*1024*1024*1024, verbose=VERBOSE):
         self.slow_dir = slow_dir.rstrip("/")
         self.fast_dir = fast_dir.rstrip("/")
-
-    # Helpers
-    # =======
-
+        self.maxfilesize = maxfilesize #default 3GB #stream everything else from slow disk
+        self.verbose=verbose
 
 
     # Filesystem methods
@@ -57,7 +56,7 @@ class Passthrough(Operations):
 
 
     def getattr(self, path, fh=None):
-        if VERBOSE:
+        if self.verbose:
             print "get attr"
             print path
         base = nostat()
@@ -66,20 +65,27 @@ class Passthrough(Operations):
             base.st_nlink = 2
         else:
             fast_name = "%s%s" %(self.fast_dir, path)
-            if VERBOSE: print "checking:", fast_name
+            if self.verbose: print "checking:", fast_name
             if os.path.isfile(fast_name):
                 st = os.lstat(fast_name)
-                if VERBOSE:
+                if self.verbose:
                     print "found:", fast_name
 
             else:
                 slow_name = "%s%s" %(self.slow_dir, path)
-                if VERBOSE: print "checking:", slow_name
+                if self.verbose: print "checking:", slow_name
                 if os.path.isfile(slow_name):
-                    if VERBOSE:
+                    if self.verbose:
                         print "found:", slow_name, fast_name
-                    shutil.copy(slow_name, fast_name)
-                    st = os.lstat(fast_name)
+                    st = os.lstat(slow_name)
+                    if st.st_size > self.maxfilesize:
+                        if self.verbose: print "symlinking:", slow_name, fast_name
+                        os.symlink(slow_name, fast_name)
+                    else:
+                        if self.verbose: print "copying:", slow_name, fast_name
+                        shutil.copy(slow_name, fast_name)
+                        st = os.lstat(fast_name)
+
                 elif os.path.isdir(slow_name):
                     st = os.lstat(slow_name)
                     try:
@@ -101,44 +107,38 @@ class Passthrough(Operations):
             if not stat.S_ISDIR(st.st_mode):
                 output['st_mode'] = 41471
                 output['st_size'] = 20
-            if VERBOSE: print output
+            if self.verbose: print output
             return output
-        if VERBOSE: print base.as_dict()
+        if self.verbose: print base.as_dict()
         return base.as_dict()
 
 
     def readlink(self, path):
         fast_dir = "%s%s" %(self.fast_dir, path)
         os.utime(fast_dir, None)
-        if VERBOSE:
+        if self.verbose:
             print "readlink"
             print path, fast_dir
         return fast_dir
 
 
     def release(self, path, fh):
-        if VERBOSE:
+        if self.verbose:
             print "release"
             print path
             print fh
         return os.close(fh)
 
     def readdir(self, path, fh):
-        '''This method is called when you list a directory.
-           I.e. by calling ls /my_filesystem/
-           The method getattr is called first, to see if path exists and is a directory.
-           Returns a list of strings with the file or directory names in the directory *path*.'''
-        if VERBOSE:
-            print "readdir", path, fh
-        file_objects = [".", "..", "my_file"]
-        return file_objects
+        if self.verbose: print "readdir", path, fh
+        return GET_DIR
 
-def main(mountpoint, fast_dir, slow_dir):
-    FUSE(Passthrough(slow_dir, fast_dir), mountpoint, nothreads=True, foreground=True)
+def start_filesystem(mountpoint, fast_dir, slow_dir, verbose=VERBOSE):
+    FUSE(CacheDir(slow_dir, fast_dir, verbose=verbose), mountpoint, nothreads=True, foreground=True)
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
         print "Usage: %s <mount point> <fast_dir> <slow_dir>" %sys.argv[0]
         exit(-1)
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    start_filesystem(sys.argv[1], sys.argv[2], sys.argv[3])

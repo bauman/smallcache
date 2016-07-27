@@ -1,0 +1,11 @@
+[Unit]
+Description=index cache
+
+[Service]
+User=centos
+Group=centos
+ExecStart=/usr/bin/cache-filesystem /i /c/i/ /s3vt/idx/vt/
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

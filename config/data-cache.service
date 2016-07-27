@@ -1,0 +1,11 @@
+[Unit]
+Description=datacache
+
+[Service]
+User=centos
+Group=centos
+ExecStart=/usr/bin/cache-filesystem /d /c/d/ /s3vt/vt/
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
