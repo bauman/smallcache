@@ -4,7 +4,7 @@ Description=index cache
 [Service]
 User=centos
 Group=centos
-ExecStart=/usr/bin/cache-filesystem /i /c/i/ /s3vt/idx/vt/
+ExecStart=/usr/bin/cache-filesystem /i /c/i/ /s3idx/vt/
 Restart=on-failure
 
 [Install]

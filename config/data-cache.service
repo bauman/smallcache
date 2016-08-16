@@ -4,7 +4,7 @@ Description=datacache
 [Service]
 User=centos
 Group=centos
-ExecStart=/usr/bin/cache-filesystem /d /c/d/ /s3vt/vt/
+ExecStart=/usr/bin/cache-filesystem /d /c/d/ /s3data/vt/
 Restart=on-failure
 
 [Install]

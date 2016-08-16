@@ -134,7 +134,8 @@ class CacheDir(Operations):
         return GET_DIR
 
 def start_filesystem(mountpoint, fast_dir, slow_dir, verbose=VERBOSE):
-    FUSE(CacheDir(slow_dir, fast_dir, verbose=verbose), mountpoint, nothreads=True, foreground=True)
+    #FUSE(CacheDir(slow_dir, fast_dir, verbose=verbose), mountpoint, nothreads=True, foreground=True)
+    FUSE(CacheDir(slow_dir, fast_dir, verbose=verbose), mountpoint, foreground=True)
 
 if __name__ == '__main__':
     import sys
